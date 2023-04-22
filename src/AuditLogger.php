@@ -1,125 +1,42 @@
-<?php
-
-namespace iamjohndev;
-
-class AuditLogger
-{
-    private static $logDriver;
-    private static $dbConnection;
-    private static $logFormatter;
-
-    // Set the log storage driver
-    public static function setLogDriver($driver)
-    {
-        self::$logDriver = $driver;
+class AuditLogger {
+  private $driver;
+  
+  public function __construct($driverType, $config) {
+    // Check the driver type and create an instance of the appropriate driver
+    switch ($driverType) {
+      case 'file':
+        $this->driver = new FileLoggingDriver($config['filename']);
+        break;
+      case 'database':
+        $this->driver = new DatabaseLoggingDriver($config['dsn'], $config['username'], $config['password']);
+        break;
+      case 'email':
+        $this->driver = new EmailLoggingDriver($config['to'], $config['from']);
+        break;
+      default:
+        throw new Exception('Invalid logging driver type');
     }
-
-    // Set the database connection
-    public static function setDbConnection($dbConnection)
-    {
-        self::$dbConnection = $dbConnection;
-    }
-
-    // Set the log formatter
-    public static function setLogFormatter($logFormatter)
-    {
-        self::$logFormatter = $logFormatter;
-    }
-
-    // Log user interaction
-    public static function log($userId, $action)
-    {
-        $log = is_callable(self::$logFormatter) ? self::$logFormatter($userId, $action) : self::generateLog($userId, $action);
-
-        if (self::$logDriver === 'file') {
-            self::storeLogToFile($log);
-        } elseif (self::$logDriver === 'database') {
-            self::storeLogToDatabase($log);
-        } else {
-            throw new \Exception('Invalid log driver specified.');
-        }
-    }
-
-    // Generate log data
-    private static function generateLog($userId, $action)
-    {
-        $timestamp = date('Y-m-d H:i:s');
-        return "$timestamp | User ID: $userId | Action: $action";
-    }
-
-    // Store log to file
-    private static function storeLogToFile($log)
-    {
-        $logFile = 'audit.log';
-
-        // Create log file if it does not exist
-        if (!file_exists($logFile)) {
-            $result = file_put_contents($logFile, '');
-            if ($result === false) {
-                throw new \Exception('Failed to create log file.');
-            }
-        }
-
-        if (!is_writable($logFile)) {
-            throw new \Exception('Logs file is not writable.');
-        }
-
-        file_put_contents($logFile, $log . PHP_EOL, FILE_APPEND);
-        echo "Log stored to file: $log" . PHP_EOL;
-    }
-
-    // Store log to database
-    private static function storeLogToDatabase($log)
-    {
-        if (!self::$dbConnection) {
-            throw new \Exception('Database connection is not set.');
-        }
-
-        // Code to store log to database
-        self::$dbConnection->query("INSERT INTO logs (log_entry) VALUES ('$log')");
-        echo "Log stored to database: $log" . PHP_EOL;
-    }
-
-    // Get all logs
-    public static function getAllLogs()
-    {
-        if (self::$logDriver === 'file') {
-            // Code to retrieve logs from file
-            return file_get_contents('audit.log');
-        } elseif (self::$logDriver === 'database') {
-            if (!self::$dbConnection) {
-                throw new \Exception('Database connection is not set.');
-            }
-
-            // Code to retrieve logs from database
-            return self::$dbConnection->query("SELECT * FROM logs")->fetch_all();
-        } else {
-            throw new \Exception('Invalid log driver specified.');
-        }
-    }
-
-    // Clear all logs
-    public static function clearLogs()
-    {
-        if (self::$logDriver === 'file') {
-            if (!is_writable('audit.log')) {
-                throw new \Exception('Logs file is not writable.');
-            }
-
-            // Code to clear logs from file
-            file_put_contents('audit.log', '');
-            echo "Logs cleared from file." . PHP_EOL;
-        } elseif (self::$logDriver === 'database') {
-            if (!self::$dbConnection) {
-                throw new \Exception('Database connection is not set.');
-            }
-
-            // Code to clear logs from database
-            self::$dbConnection->query("DELETE FROM logs");
-            echo "Logs cleared from database." . PHP_EOL;
-        } else {
-            throw new \Exception('Invalid log driver specified.');
-        }
-    }
-
+  }
+  
+  // Other methods in the AuditLogger class...
 }
+
+class EmailLoggingDriver {
+  private $to;
+  private $from;
+  
+  public function __construct($to, $from) {
+    $this->to = $to;
+    $this->from = $from;
+  }
+  
+  public function log($message) {
+    // Send an email with the log message to the specified recipient
+    $subject = 'Audit log message';
+    $headers = "From: $this->from\r\n";
+    $body = $message;
+    
+    mail($this->to, $subject, $body, $headers);
+  }
+}
+
